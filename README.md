@@ -33,7 +33,9 @@ model-per-role table) → 1) serving + chat/IDE/CLI → 2) Domain Knowledge
 Layer + standards codification + .docx pipeline → 3) GPU phase: LoRA
 fine-tuning, larger models, vision for schematics.
 
-Status: greenfield — use-case spec approved; implementation planning next.
+Status: implementation roadmap approved — see [docs/roadmap/](docs/roadmap/)
+(phase docs, team-server hardware sizing, training plan). Next action:
+phase 0 model bake-off.
 
 Constraints / context:
 
