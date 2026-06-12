@@ -1,7 +1,8 @@
 # local_llm
 
 Goal: build and run custom LLMs fully offline on my local computer, tailored to
-various company needs. Single user (me). Full use-case spec:
+various company needs. Single user (me) today; 5-10 person team on the
+future GPU machines. Full use-case spec:
 [docs/superpowers/specs/2026-06-12-use-cases-design.md](docs/superpowers/specs/2026-06-12-use-cases-design.md)
 
 Roles:

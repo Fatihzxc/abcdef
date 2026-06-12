@@ -12,8 +12,13 @@ the embedded spectrum, code review, and code-standard enforcement.
 
 ## User & deployment
 
-- Single user (the owner), on his own machine. No multi-user serving, no
-  auth, no access control in any phase.
+- Today: single user (the owner), on his own machine. No multi-user
+  serving, no auth, no access control on current hardware.
+- Future (with the powerful machines): a 5-10 person team uses the stack
+  over the company LAN. Multi-user serving, concurrent sessions, and a
+  shared knowledge index become requirements then; the implementation plan
+  must include a recommended hardware configuration sized for 5-10
+  concurrent users (GPU server class, VRAM sizing, RAM, storage).
 - Fully offline after initial setup (model downloads happen once).
 
 ## Hardware
@@ -147,11 +152,15 @@ indexes vendor datasheets and serves register lookups) — not a new system.
   pipeline.
 - Phase 3 — GPU arrival: LoRA fine-tuning on company corpus (Turkish
   style, code conventions), larger/dense models, vision models for R7
-  schematic review.
+  schematic review; team rollout — multi-user serving (vLLM class),
+  shared knowledge index, basic auth for 5-10 engineers on the LAN.
 
 ## Out of scope
 
-- Multi-user serving, auth, user management (single user only).
+- Multi-user serving, auth, user management on TODAY's hardware (phases
+  0-2 are single-user; team serving arrives with the GPU machines in
+  phase 3).
+- Department/company-wide rollout beyond the 5-10 person team.
 - In-tool plugins for Word, Vivado, Altium, Eclipse.
 - Training models from scratch; any cloud inference.
 
