@@ -16,13 +16,21 @@ Roles:
 - R6 General document creator — EN/TR general docs and summaries
 - R7 Hardware/EDA assistant — file-level only (netlists, BOMs, Tcl); vision
   for schematics deferred to GPU phase
+- R8 Domain expert Q&A — hardware, registers, schematics/netlists, subsea
+  dynamics; always answers with citations
+
+Domain Knowledge Layer: extends the existing datasheet-kb MCP server with
+company design docs, netlist/BOM extracts from Altium, and subsea
+engineering literature. Grounds all roles via MCP; facts live in
+retrieval, never in model weights.
 
 Interfaces: browser chat, IDE (VS Code/Continue class), CLI/scriptable,
 template-based .docx output. No in-tool plugins for Word/Vivado/Altium.
 
-Phasing: 0) model bake-off (Turkish + code eval harness, model-per-role
-table) → 1) serving + chat/IDE/CLI → 2) RAG + standards codification +
-.docx pipeline → 3) GPU phase: LoRA fine-tuning, larger models, vision.
+Phasing: 0) model bake-off (Turkish + code + context-faithfulness evals,
+model-per-role table) → 1) serving + chat/IDE/CLI → 2) Domain Knowledge
+Layer + standards codification + .docx pipeline → 3) GPU phase: LoRA
+fine-tuning, larger models, vision for schematics.
 
 Status: greenfield — use-case spec approved; implementation planning next.
 

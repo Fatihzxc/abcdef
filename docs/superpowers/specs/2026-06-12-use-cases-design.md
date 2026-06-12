@@ -77,6 +77,41 @@ the embedded spectrum, code review, and code-standard enforcement.
 - No in-tool plugins for Vivado/Altium/Eclipse are assumed to exist;
   integration is file-level only.
 
+### R8 — Domain expert Q&A
+- Answers questions about the user's hardware, registers, board
+  connectivity (schematics/netlists), and subsea dynamics, grounded in the
+  Domain Knowledge Layer (below).
+- Every factual answer cites its source (document, page/section), matching
+  the citation discipline of the existing datasheet-kb. "Not found in the
+  corpus" is a valid answer; uncited facts are not.
+
+## Domain Knowledge Layer
+
+Extension of the user's existing datasheet-kb MCP server (which already
+indexes vendor datasheets and serves register lookups) — not a new system.
+
+- Corpora:
+  - Vendor PDFs: chip datasheets, reference manuals, IP core docs
+    (already indexed today).
+  - Company design documents: design docs, test reports, architecture
+    documents for the user's boards and systems.
+  - Schematics/CAD as extracted text: netlists, BOMs, pin/connector maps
+    exported from Altium. Schematic-image understanding (vision) is
+    deferred to the GPU phase.
+  - Subsea engineering literature: textbooks, papers, DNV/API-class
+    standards, company analyses. Math-heavy PDFs need equation-aware
+    chunking.
+- Exposed via MCP to all interfaces, serving two purposes:
+  1. Standalone R8 expert Q&A.
+  2. Automatic grounding for all other roles (e.g. code reviewer checks a
+     driver against the actual register map; document creator knows the
+     board it is describing).
+- Architectural rule: facts live in retrieval, never in weights. RAG
+  provides citations, instant updates when a document revs, and no
+  hallucinated register values. Phase-3 LoRA fine-tuning may add domain
+  fluency (terminology, style) but factual questions always go through
+  retrieval.
+
 ## Interfaces
 
 | Interface | Roles | Phase notes |
@@ -86,6 +121,7 @@ the embedded spectrum, code review, and code-standard enforcement.
 | CLI / scriptable (batch review, pre-commit, doc pipelines) | R3, R4 (R5 from phase 2) | Phase 1 |
 | Office: template-based .docx generation | R1, R6 | Phase 2 |
 | EDA tools: file-level exchange only | R7 | GPU phase |
+| Domain Knowledge Layer via MCP (all interfaces) | R8 + grounding for all | Phase 2 |
 
 ## Phasing
 
@@ -93,6 +129,10 @@ the embedded spectrum, code review, and code-standard enforcement.
   - Build a small eval harness with the user's own test cases: Turkish
     document samples per doc family, representative code snippets per
     language.
+  - Third test set: retrieval-grounded Q&A — hardware/register/subsea
+    questions with known answers plus the relevant source excerpt, scoring
+    how faithfully each model uses provided context and cites it (context
+    faithfulness matters more than eloquence for R8 and grounded roles).
   - Candidates: Qwen3 family incl. MoE (30B-A3B class), Gemma 3,
     Aya-Expanse (Turkish), Qwen2.5-Coder class (code).
   - Score per role on quality AND tokens/sec on this CPU. Output: a
@@ -100,7 +140,9 @@ the embedded spectrum, code review, and code-standard enforcement.
 - Phase 1 — serving + top roles: llama.cpp/Ollama behind an
   OpenAI-compatible endpoint; chat UI + IDE + CLI wired to bake-off
   winners; per-role system-prompt configs.
-- Phase 2 — knowledge grounding: RAG over company documents; standards
+- Phase 2 — knowledge grounding: extend datasheet-kb into the Domain
+  Knowledge Layer (company docs, netlist/BOM extraction from Altium
+  exports, subsea literature) and wire it into all roles + R8; standards
   codification (per-language docs) + R5 standard reviewer; .docx template
   pipeline.
 - Phase 3 — GPU arrival: LoRA fine-tuning on company corpus (Turkish
@@ -124,3 +166,9 @@ the embedded spectrum, code review, and code-standard enforcement.
   are set by data.
 - Informal standards (R5) depend on the user writing/approving the
   codified docs; schedule slack for that human step.
+- Schematic grounding quality depends on source availability: Altium
+  sources allow clean netlist/BOM export; PDF-only schematics degrade to
+  the GPU/vision phase.
+- Subsea literature is math-heavy; naive PDF chunking mangles equations.
+  Equation-aware extraction is required, and the bake-off Q&A set should
+  include subsea questions to verify it works end to end.
