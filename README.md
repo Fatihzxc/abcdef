@@ -22,6 +22,12 @@ Constraints / context:
   too slow; favor small dense (7-14B) or MoE models with few active
   parameters. Local GPU fine-tuning is not feasible; if fine-tuning is
   needed, assume a one-off rented GPU or favor RAG + prompting instead.
+- Powerful machines (proper GPUs) will be available in the future: design
+  the architecture to scale up, not around today's hardware. Choices that
+  port cleanly (model-agnostic serving API, RAG pipeline, eval suite,
+  per-role configs) are preferred over CPU-only dead ends. Phase the plan:
+  phase 1 runs on today's box; later phases (bigger models, LoRA
+  fine-tuning on company data) activate when GPU hardware arrives.
 - "Custom" likely means a mix of: selecting/quantizing open-weight base models,
   fine-tuning (LoRA/QLoRA) on personal data, and RAG over local documents —
   the plan should weigh these options per use case rather than assume
