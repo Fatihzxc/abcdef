@@ -1,8 +1,15 @@
 # local_llm
 
 Goal: build and run custom LLMs fully offline on my local computer, tailored to
-various personal needs (e.g. coding assistance, document Q&A, embedded/hardware
-reference lookup).
+various company needs:
+
+- Turkish document creator (write company documents in Turkish)
+- Turkish document reviewer
+- Coder (coding assistant)
+- Code reviewer
+- Code-standard reviewer (check code against company coding standards)
+- General document creator
+- ...and similar company-internal assistant roles
 
 Status: greenfield — planning phase. No code yet.
 
