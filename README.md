@@ -1,17 +1,30 @@
 # local_llm
 
 Goal: build and run custom LLMs fully offline on my local computer, tailored to
-various company needs:
+various company needs. Single user (me). Full use-case spec:
+[docs/superpowers/specs/2026-06-12-use-cases-design.md](docs/superpowers/specs/2026-06-12-use-cases-design.md)
 
-- Turkish document creator (write company documents in Turkish)
-- Turkish document reviewer
-- Coder (coding assistant)
-- Code reviewer
-- Code-standard reviewer (check code against company coding standards)
-- General document creator
-- ...and similar company-internal assistant roles
+Roles:
 
-Status: greenfield — planning phase. No code yet.
+- R1 Turkish document creator — technical, official-correspondence,
+  process/quality, presentation docs; template-driven + RAG for house style
+- R2 Turkish document reviewer — register, structure-vs-template, terminology
+- R3 Coder — embedded C/C++, Python, VHDL/Verilog, app stack, Linux/Yocto,
+  Vivado Tcl
+- R4 Code reviewer — diff-based in IDE, batch via CLI/pre-commit
+- R5 Code-standard reviewer — needs standards codified first (today informal)
+- R6 General document creator — EN/TR general docs and summaries
+- R7 Hardware/EDA assistant — file-level only (netlists, BOMs, Tcl); vision
+  for schematics deferred to GPU phase
+
+Interfaces: browser chat, IDE (VS Code/Continue class), CLI/scriptable,
+template-based .docx output. No in-tool plugins for Word/Vivado/Altium.
+
+Phasing: 0) model bake-off (Turkish + code eval harness, model-per-role
+table) → 1) serving + chat/IDE/CLI → 2) RAG + standards codification +
+.docx pipeline → 3) GPU phase: LoRA fine-tuning, larger models, vision.
+
+Status: greenfield — use-case spec approved; implementation planning next.
 
 Constraints / context:
 
