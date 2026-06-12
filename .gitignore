@@ -1,0 +1,17 @@
+# Claude Code local (per-machine) settings
+.claude/settings.local.json
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+
+# Model weights & datasets (large binaries stay out of git)
+*.gguf
+*.safetensors
+*.bin
+*.pt
+*.pth
+models/
+datasets/
