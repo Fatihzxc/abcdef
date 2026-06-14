@@ -69,7 +69,7 @@ Four invariants, stated once here and enforced in every phase doc:
 | **0 — Bake-off** | Harness + 3 test sets running; candidates scored in staged passes (smoke→full); `docs/bakeoff/results.md` model-per-role table committed; setup pinned in `artifacts.lock`; Turkish risk gate decided (incl. R6-TR) | 4–6 |
 | **1 — Serving** | llama-swap serving role aliases; chat + IDE + CLI all working through role configs; advisory R4 pre-commit hook (blocking opt-in only after its eval gate passes); harness re-passes through the serving path | 3–4 |
 | **2 — Knowledge** | Ships as independent milestones **2A–2E** (text+R8 · standards+R5 · `.docx` · Altium · subsea PDF), each with its own acceptance gate incl. retrieval-quality checks; phase done = all five | 6–10 |
-| **3 — GPU/team** | vLLM + LiteLLM keys on the server; GPU bake-off rerun; vision R7; adapters per training plan; 5–10 engineers onboarded | 2–3 + rollout weeks |
+| **3 — GPU/team** | **3A** server up: vLLM swap + GPU bake-off rerun + R7 vision (Step-0 benchmark gate passed before purchase) → **3B** rollout: LiteLLM per-user keys + shared index + 5–10 engineers → **3C** *optional* LoRA adapters, only if a role fails its RAG/prompting gate | 2–3 + rollout weeks |
 
 Effort is in evenings/weekends-class working sessions, not calendar
 promises; phase 2's range is wide because ingestion quality and the human

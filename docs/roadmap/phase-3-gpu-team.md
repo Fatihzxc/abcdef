@@ -8,6 +8,17 @@ on the LAN with basic auth.
 
 Prerequisites: phases 1–2 in daily single-user use; GPU server installed.
 
+**Three gated stages, in order — adapters are optional and last:**
+
+- **3A — server up + capacity gate.** vLLM backend swap, GPU bake-off rerun,
+  R7 vision; the Step 0 benchmark gate must pass *before the hardware is
+  bought*.
+- **3B — team rollout.** Per-user auth (LiteLLM keys), shared index, 5–10
+  engineers onboarded (see Operations & security).
+- **3C — optional LoRA adapters.** Only if a role fails a measured
+  RAG/prompting gate (invariant #3: fine-tuning buys style, not facts). Many
+  deployments never need this stage — see the [training plan](training-plan.md).
+
 Acceptance criteria:
 
 - [ ] vLLM serves the new model lineup behind the same OpenAI-compatible
