@@ -1,7 +1,8 @@
 # Phase 0 — Model Bake-off
 
-Goal: pick the best model per role (R1–R8) for **this** machine (64 GB RAM,
-8-core CPU, Windows 11, no GPU), based on the user's own test cases, and
+Goal: pick the best model per role (R1–R8) for **this** machine (32 GB RAM,
+i9-14900HX 24-core, RTX 4070 Laptop 8 GB VRAM, Windows 11), based on the
+user's own test cases, and
 commit the decision as a model-per-role table. The eval harness built here
 stays for the life of the project as the regression gate for every model,
 prompt, or hardware change.
@@ -50,32 +51,42 @@ curl -LsSf https://astral.sh/uv/install.sh | sh
 uv python install 3.12
 ```
 
-WSL2 memory: by default WSL2 caps at 50% of host RAM. Models up to ~20 GB
-need more headroom. Create `C:\Users\<you>\.wslconfig`:
+WSL2 memory: by default WSL2 caps at 50% of host RAM (~16 GB here), which is
+not enough for a ~18 GB MoE model plus context. Raise it, but leave headroom
+for Windows + Docker Desktop. Create `C:\Users\<you>\.wslconfig`:
 
 ```ini
 [wsl2]
-memory=56GB        # leave ~8 GB for Windows
-processors=8
+memory=24GB        # of 32 GB total — leaves ~8 GB for Windows/Docker
+processors=24      # i9-14900HX: 24 physical cores (32 logical)
 ```
 
-then `wsl --shutdown` and reopen.
+then `wsl --shutdown` and reopen. A ~18 GB 30B-A3B model is marginal at this
+RAM with large context — watch peak RSS (`free -h` during a run) and drop
+context length or model size if it starts to swap.
 
 ### llama.cpp
 
 Build from source so the binary uses every CPU feature available (AVX2 is
-detected automatically):
+detected automatically). The RTX 4070 Laptop (8 GB) can partly offload small
+models, so also build the CUDA variant (needs the CUDA toolkit in WSL):
 
 ```bash
 git clone https://github.com/ggml-org/llama.cpp ~/llama.cpp
 cd ~/llama.cpp
+# CPU build:
 cmake -B build -DCMAKE_BUILD_TYPE=Release
-cmake --build build --config Release -j8
+cmake --build build --config Release -j"$(nproc)"
+# CUDA build (optional — partial GPU offload on the 4070):
+cmake -B build-cuda -DCMAKE_BUILD_TYPE=Release -DGGML_CUDA=ON
+cmake --build build-cuda --config Release -j"$(nproc)"
 # binaries: build/bin/llama-server, build/bin/llama-bench, build/bin/llama-cli
 ```
 
-Pin the llama.cpp commit hash in `docs/bakeoff/results.md` when recording
-results — throughput changes between releases.
+With the CUDA build, offload as many layers as fit in 8 GB via `-ngl N`
+(small models only — a 30B-A3B will not fully fit). Pin the llama.cpp commit
+hash in `docs/bakeoff/results.md` when recording results — throughput changes
+between releases.
 
 ### Model storage convention
 
@@ -102,8 +113,11 @@ or `pip install open-webui`. Everything else in this roadmap still applies.
 ## Step 2 — Candidate models
 
 Candidates per spec plus releases since (verified June 2026). All GGUF
-**Q4_K_M** unless noted; on 64 GB RAM everything below fits, but only one
-large model runs at a time.
+**Q4_K_M** unless noted. On 32 GB RAM the smaller models (8–14B, ~5–9 GB) run
+comfortably; the ~16–18 GB 30B-class MoE models are marginal once WSL +
+Windows overhead and large context are added, so run one large model at a
+time and stage the bake-off — small models first, 30B-class with reduced
+context.
 
 | Model | Type | ~GGUF size | Roles targeted | Why |
 |---|---|---|---|---|
@@ -121,10 +135,11 @@ same families (Qwen, Gemma, Aya, coder-MoE) — this table is a snapshot, the
 families are the decision. Drop a candidate rather than growing the list
 past ~8; each added model costs a full human-scoring pass.
 
-Expected throughput on 8 cores (set expectations, then measure): MoE ~3B
-active ≈ 8–15 tok/s; dense 12–14B ≈ 3–6 tok/s; dense 27B+ ≈ 1.5–4 tok/s.
-The spec's long-document risk is real for dense models — this is why the
-MoE candidates matter.
+Expected throughput on the i9-14900HX (24 cores; set expectations, then
+measure with `llama-bench`): MoE ~3B active ≈ 15–30 tok/s; dense 12–14B ≈
+6–12 tok/s; dense 27B+ ≈ 3–6 tok/s. Partial GPU offload (`-ngl`) on the 4070
+lifts the small-model numbers further. The spec's long-document risk is real
+for dense models — this is why the MoE candidates matter.
 
 ## Step 3 — Eval harness (`evals/`)
 

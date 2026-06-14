@@ -71,8 +71,9 @@ PDF-only schematics (no Altium source) are **not** ingested — schematic
 
 **Embeddings + reranking.** Multilingual is mandatory (Turkish docs +
 English datasheets in one index): `bge-m3` embeddings + `bge-reranker-v2-m3`
-reranker. Both run acceptably on CPU at index/query scale (this is where
-the 8 cores hurt least). They serve the whole stack — same models reused by
+reranker. Both run acceptably on CPU at index/query scale (cheap next to
+generation, and the 24-core CPU has ample headroom). They serve the whole
+stack — same models reused by
 Open WebUI document chat if enabled.
 
 **Citations.** Preserve datasheet-kb's existing citation discipline:

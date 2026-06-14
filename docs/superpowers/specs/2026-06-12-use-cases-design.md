@@ -23,9 +23,12 @@ the embedded spectrum, code review, and code-standard enforcement.
 
 ## Hardware
 
-- Today: 64 GB RAM, 8-core CPU, no usable GPU → CPU-only inference via
-  llama.cpp/GGUF. Favor small dense models (7–14B) or MoE models with few
-  active parameters (e.g. ~30B total / ~3B active), quantized ~Q4.
+- Today (live dev machine): 32 GB RAM, Intel Core i9-14900HX (24 cores /
+  32 threads), NVIDIA RTX 4070 Laptop GPU (8 GB VRAM), Windows 11 →
+  llama.cpp/GGUF inference, optionally offloading small models partly to the
+  8 GB GPU. RAM is the binding constraint: favor small dense models (7–14B)
+  or MoE models with few active parameters (e.g. ~30B total / ~3B active),
+  quantized ~Q4, with one large model resident at a time.
 - Future: powerful GPU machines will arrive. Architecture must port
   cleanly: model-agnostic OpenAI-compatible serving API, RAG pipeline,
   eval suite, and per-role configs survive the hardware upgrade; only the
@@ -170,9 +173,12 @@ indexes vendor datasheets and serves register lookups) — not a new system.
   this is why the bake-off is phase 0 and includes a Turkish-specific
   test set. Mitigation if all candidates fail: heavier RAG/templating, or
   defer Turkish generation roles to the GPU phase.
-- 8-core CPU throughput may make long-document generation slow even with
-  MoE models; the bake-off measures tokens/sec explicitly so expectations
-  are set by data.
+- RAM (32 GB) is the binding constraint, not CPU: a 30B-A3B GGUF (~18 GB)
+  plus WSL/Windows overhead and large context is marginal, so long-document
+  generation may need reduced context or a smaller model. The 24-core
+  i9-14900HX (plus optional 8 GB GPU offload) keeps throughput workable; the
+  bake-off measures tokens/sec and peak RAM explicitly so expectations are
+  set by data.
 - Informal standards (R5) depend on the user writing/approving the
   codified docs; schedule slack for that human step.
 - Schematic grounding quality depends on source availability: Altium

@@ -3,10 +3,10 @@
 Implements the approved
 [use-case design](../superpowers/specs/2026-06-12-use-cases-design.md):
 eight assistant roles (Turkish documents, coding, review, standards,
-EDA, domain Q&A) running fully offline — today single-user on a 64 GB
-RAM / 8-core CPU Windows 11 box, later a 5–10 engineer team on an on-prem
-GPU server. Everything is phased so the CPU era builds nothing the GPU era
-throws away.
+EDA, domain Q&A) running fully offline — today single-user on a 32 GB
+RAM / i9-14900HX (24-core) / RTX 4070 Laptop (8 GB VRAM) Windows 11 box,
+later a 5–10 engineer team on an on-prem GPU server. Everything is phased so
+the laptop era builds nothing the GPU era throws away.
 
 The roadmap is six documents:
 

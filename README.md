@@ -41,10 +41,13 @@ Constraints / context:
 
 - Must work offline after initial setup (no cloud inference).
 - Windows 11 host.
-- Hardware: 64 GB RAM, 8-core CPU, no usable GPU — plan for CPU-only
-  inference (llama.cpp/GGUF, quantized models). Large dense models will be
-  too slow; favor small dense (7-14B) or MoE models with few active
-  parameters. Local GPU fine-tuning is not feasible; if fine-tuning is
+- Hardware (live dev machine): 32 GB RAM, Intel Core i9-14900HX (24 cores /
+  32 threads), NVIDIA RTX 4070 Laptop GPU (8 GB VRAM, CUDA 12.x).
+  Primary inference path is llama.cpp/GGUF quantized models; the 8 GB GPU can
+  partially offload small models (7-14B) for extra speed. RAM (32 GB) is the
+  binding constraint — not CPU — so favor small dense (7-14B) or MoE models
+  with few active parameters and keep one large model resident at a time.
+  Local GPU fine-tuning is not feasible on 8 GB VRAM; if fine-tuning is
   needed, assume a one-off rented GPU or favor RAG + prompting instead.
 - Powerful machines (proper GPUs) will be available in the future: design
   the architecture to scale up, not around today's hardware. Choices that
