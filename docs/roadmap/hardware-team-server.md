@@ -2,9 +2,11 @@
 
 Sizing for phase 3: one on-prem GPU server on the company LAN serving 5–10
 engineers with multi-user inference (vLLM), the shared knowledge index, and
-occasional LoRA training. Numbers verified June 2026; **re-verify SKUs and
-prices at purchase time** — this market moves fast, and the *sizing math*
-below is the durable part of this document.
+occasional LoRA training. The *sizing math* below is the durable part of
+this document. Volatile SKU/price/power/availability claims live in
+[hardware-sku-checklist.md](hardware-sku-checklist.md) and **must be
+re-verified from the vendor / a system integrator at purchase time** — that
+market moves fast.
 
 ## Sizing model (do the arithmetic, then pick the box)
 
@@ -37,7 +39,7 @@ table, not the conclusion.
 
 | Component | Spec | Rationale |
 |---|---|---|
-| GPU | **2× NVIDIA RTX PRO 6000 Blackwell, 96 GB GDDR7 ECC each (192 GB total)** | Only workstation card with 96 GB; 1.79 TB/s bandwidth, FP8/FP4 tensor cores; 2 cards = whole stack resident + tensor-parallel 70B; ~$9–13k each street (June 2026) |
+| GPU | **2× 96 GB-class workstation card (192 GB total)** — see [SKU checklist](hardware-sku-checklist.md) | 192 GB clears the 160–190 GB sizing above with headroom; ECC + high bandwidth + FP8/FP4 = whole stack resident + tensor-parallel 70B. Exact SKU/price/power: re-verify in the checklist |
 | CPU | AMD EPYC 9004/9005 (32-core) or Threadripper PRO 7975WX | PCIe 5.0 lanes for 2 GPUs at x16 + NVMe; ingestion/parsing work is CPU-side |
 | RAM | **512 GB DDR5 ECC** (256 GB floor) | Model load staging, page cache for the index, headroom for ingestion jobs |
 | Storage | 2× 4 TB NVMe Gen4/5 (models + vector index) **+** 2× 8 TB SATA/NVMe in RAID1 (corpus + backups) | Models alone run 200–500 GB; corpus and index grow; RAID1 where loss hurts |
@@ -45,15 +47,17 @@ table, not the conclusion.
 | PSU / chassis | ≥ 2000 W (each GPU ~600 W), 4U or full tower, server airflow | See power/placement notes |
 | OS / stack | Ubuntu LTS, NVIDIA driver + CUDA, Docker, **vLLM**, LiteLLM, Open WebUI | Phase-3 software plan |
 
-Ballpark system cost (June 2026): **$25k–35k** depending on GPU street
-price and platform choice.
+Ballpark system cost depends on GPU street price and platform choice;
+re-quote from the [SKU checklist](hardware-sku-checklist.md) at purchase
+time rather than budgeting from a stale figure.
 
 This box also covers the training plan: QLoRA fine-tuning of a 70B-class
 base fits easily in 96 GB, so company data never leaves the building.
 
 ## Alternative tiers
 
-**Budget — 4× RTX 5090 (32 GB) = 128 GB, roughly $12–16k in GPUs.**
+**Budget — 4× consumer 32 GB card = 128 GB** (SKU/price in the
+[checklist](hardware-sku-checklist.md)).
 Works, but: 70B FP8 + KV across 4 consumer cards means 4-way tensor
 parallel over PCIe without P2P guarantees (consumer driver), no ECC,
 2 fewer years of warranty/MTBF comfort, and ~128 GB caps headroom — the
@@ -74,21 +78,28 @@ splitting buys availability the spec doesn't ask for and doubles admin.
 
 - 2× ~600 W GPUs + platform ≈ **1.6–1.9 kW sustained** under load: that is
   a dedicated 16 A circuit in most office wiring — check before ordering.
-- Workstation-edition RTX PRO 6000s are blower cards that can live in a
-  tower in a ventilated room; the **Max-Q variant (300 W)** trades ~15%
+- Workstation-edition blower cards can live in a tower in a ventilated
+  room; a **Max-Q-class variant (~half the board power)** trades ~15%
   throughput for half the heat/noise if the box must sit near desks.
-  Server-edition cards need rack airflow — only with a real server room.
+  Server/rack-edition cards need rack airflow — only with a real server
+  room. Confirm the exact board editions and their power in the
+  [SKU checklist](hardware-sku-checklist.md).
 - UPS sized for graceful shutdown (not runtime): ~3 kVA line-interactive.
 - Noise: a loaded 4U is not office-compatible; a tower with Max-Q cards is
   borderline. Decide placement before the chassis, not after.
 
 ## Purchase-time checklist
 
-- [ ] Re-check GPU street price and the then-current 96 GB-class SKU
-      (successor cards may exist; re-run the sizing table against them).
+- [ ] Re-verify GPU SKU / price / power from the
+      [SKU checklist](hardware-sku-checklist.md) (successor cards may exist;
+      re-run the sizing table against the actual card you'll buy).
 - [ ] Confirm chosen models' FP8 weights actually fit the table above
-      (model lineup will have changed since June 2026).
+      (model lineup will have changed since this was written).
 - [ ] Verify motherboard PCIe slot spacing fits two triple-slot cards at
       x16/x16.
 - [ ] Confirm the electrical circuit and placement room.
 - [ ] Order 10 GbE NIC + switch port at the same time, not after.
+- [ ] **Pass the purchase-time benchmark gate** (Step 0 in
+      [phase-3-gpu-team.md](phase-3-gpu-team.md)) on loaner/rented candidate
+      hardware before raising the PO — the 160–190 GB sizing above is an
+      estimate until measured.

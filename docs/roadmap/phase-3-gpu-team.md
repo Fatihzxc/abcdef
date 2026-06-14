@@ -23,6 +23,45 @@ bake-off spread over a few weeks alongside team onboarding.
 
 ---
 
+## Step 0 — Purchase-time benchmark gate (before buying hardware)
+
+The 5-concurrent × 32k design point and the 160–190 GB VRAM estimate in
+[hardware-team-server.md](hardware-team-server.md) are **estimates, not
+measurements**. Before committing money, run this acceptance benchmark on a
+**loaner / rented / integrator-demo box of the candidate GPU config** and
+require every target to pass. If a target fails, change the lineup,
+quantization, or the box — not the target.
+
+**Fix the configuration under test first:**
+
+- [ ] Exact model lineup + quantization recorded (chat 70B-class, coder,
+      vision, embeddings/reranker — the FP8 weights from the sizing table).
+- [ ] Max resident models loaded simultaneously (no swapping) = the full
+      R1–R8 stack the table assumes.
+- [ ] Max context per role set to the served value (32k for the chat/docs
+      roles; record coder/vision limits too).
+
+**Acceptance targets (5-user mixed workload):**
+
+| Metric | Target | Pass? |
+|---|---|---|
+| Workload | 5 concurrent users, mixed chat + code + 1 vision, 32k context on chat roles | — |
+| p95 time-to-first-token | **≤ target you set before the run** (e.g. ≤ 2 s) | [ ] |
+| Aggregate generation throughput | **≥ target tok/s** across the 5 streams | [ ] |
+| Peak VRAM | **fits the card with headroom** (no OOM, no eviction of a resident role) | [ ] |
+| Peak CPU RAM | within the 512 GB (256 GB floor) sizing | [ ] |
+
+**Graceful-degradation policy (define + verify, don't discover in prod):**
+
+- [ ] What happens when a 6th+ concurrent request or a >32k context arrives:
+      queue, reject with a clear error, or shrink batch — decide, configure
+      in vLLM/LiteLLM, and confirm it degrades that way under overload (no
+      OOM-kill, no silent truncation).
+
+Record the run (config + numbers) next to the GPU bake-off in
+`docs/bakeoff/`. **No purchase order until this gate is green on the actual
+candidate hardware.**
+
 ## Step 1 — Backend swap (the payoff of the API invariant)
 
 Install Ubuntu LTS + drivers + Docker per the hardware doc. Bring up:
@@ -33,9 +72,12 @@ Install Ubuntu LTS + drivers + Docker per the hardware doc. Bring up:
 - **LiteLLM proxy** on `:4000` in front of the vLLM instances — this is
   the new "one endpoint": it maps the **same role aliases**
   (`r1-docs-tr`, `r3-coder`, …) to backend model+adapter combinations,
-  issues per-user API keys, and logs usage per user. That key list is the
-  entire auth story the spec asks for (5–10 trusted LAN users — no SSO
-  project).
+  issues per-user API keys, and logs usage per user. Per-user keys are the
+  **minimum** auth (5–10 trusted LAN users — no SSO project), but not the
+  whole story: a trusted-LAN deployment still needs the operational
+  controls in the [Operations & security](#operations--security) section
+  below (key DB + backup, revocation, interface binding, firewall, logs,
+  restore drill).
 
 Client change = one URL + one key per user: Open WebUI's
 `OPENAI_API_BASE_URL`, each engineer's Continue `apiBase`, `llmctl`'s
@@ -106,6 +148,33 @@ the eval harness before it replaces a base-model role.
    update LiteLLM mapping → announce. One named owner (the user) for
    server, index, and model lineup. Watch usage logs for the first month to
    see which roles the team actually uses; prune or improve accordingly.
+
+## Operations & security
+
+Per-user LiteLLM keys are the floor. Even on a trusted LAN, these are the
+operational controls the deployment still needs — set up in this phase:
+
+- [ ] **LiteLLM key store has a backing database** (Postgres, not the
+      in-memory/SQLite default) — virtual keys need it to survive a
+      restart. Include it in the nightly backup; verify it's actually
+      captured.
+- [ ] **Key lifecycle owned:** documented procedure to create a key on
+      onboarding and **revoke** it on offboarding (engineer leaves → key
+      dies same day). One named owner runs it.
+- [ ] **Open WebUI admin ownership:** named admin account; sign-up disabled
+      or admin-approved (no open self-registration on the LAN); admin
+      account itself protected.
+- [ ] **Bind endpoints to intended interfaces only:** LiteLLM `:4000`, vLLM
+      ports, Open WebUI, and the MCP/knowledge index bind to the LAN/loopback
+      address — never `0.0.0.0` exposed to a routable/WAN interface.
+- [ ] **Host firewall allowlist:** only the serving ports, only from the
+      office subnet; default-deny everything else.
+- [ ] **Log retention:** decide how long per-user usage logs (LiteLLM) and
+      access logs are kept and where; enough to answer "who ran what" without
+      growing unbounded.
+- [ ] **Restore drill:** restore the LiteLLM key DB + index + configs from
+      backup onto a clean target once, and confirm keys/accounts still work
+      — same discipline as the index restore drill in Step 5.
 
 ## Out of scope (unchanged from spec)
 

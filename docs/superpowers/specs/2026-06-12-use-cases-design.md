@@ -76,6 +76,10 @@ the embedded spectrum, code review, and code-standard enforcement.
 ### R6 — General document creator
 - English and Turkish general-purpose documents and summaries; lighter
   sibling of R1 without company-template constraints.
+- For the phase-0 Turkish risk gate, treat R6 as subcapabilities: R6-EN
+  (English docs), R6-TR (Turkish generation), and summaries. R6-TR
+  generation shares R1's Turkish-quality risk and fallback; R6-EN and
+  summarisation do not.
 
 ### R7 — Hardware/EDA assistant (later phase)
 - Works on files exported from EDA tools, not inside them: netlists, BOMs,

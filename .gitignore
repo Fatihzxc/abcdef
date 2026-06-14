@@ -15,3 +15,7 @@ venv/
 *.pth
 models/
 datasets/
+
+# Eval data classification (see phase-0-bakeoff.md Step 4)
+evals/cases/private/      # sensitive company cases — local + backup only
+evals/results/            # raw model outputs — summaries go to docs/bakeoff/

@@ -45,6 +45,30 @@ share a resident base).
   conforming code. 1,000–2,000 pairs; per-language balance matching the
   spec's language list, weighted toward embedded C/C++.
 
+### Pre-training data-governance gate (blocking)
+
+Must pass **before any dataset is created** and **before any rented GPU is
+used**. Sensitive material (design docs, customer content, subsea data,
+code) is in scope — this gate is non-negotiable.
+
+1. **Source approval category:** every source repo/corpus is tagged with an
+   approved category (public, internal-ok-to-train, sensitive-no-train).
+   Only approved categories enter a dataset.
+2. **Secret/credential scan:** scan candidate text for keys, tokens,
+   passwords, connection strings; quarantine any hit.
+3. **PII check:** scan for personal data (names, contacts, customer
+   identifiers); redact or drop.
+4. **Document-status filter:** exclude rejected drafts and anything marked
+   not-for-reuse / superseded — only released/approved status passes.
+5. **License/ownership note:** record ownership and any usage restriction
+   per source; third-party or customer-owned content needs explicit clearance.
+6. **Sample human review:** a person reads a random sample of the mined
+   pairs. Reverse-instruction mining from approved docs is **not** trusted
+   blind — sample it for quality and for leakage (the brief must not echo
+   sensitive specifics that belong only in retrieval).
+7. **Explicit sign-off:** named owner signs the gate; recorded in the
+   provenance file (below). No sign-off, no dataset, no GPU.
+
 ### Dataset hygiene (both adapters)
 
 - Format: ChatML, stored as JSONL in a private `datasets/` location
@@ -67,9 +91,18 @@ share a resident base).
 - **Tooling:** Axolotl (config-file driven, reproducible — commit the YAML
   config, without data, to this repo under `configs/training/`); Unsloth is
   the alternative if single-GPU throughput becomes the bottleneck.
-- **Compute reality:** a 30B-class QLoRA over ~3k examples is hours, not
-  days, on one 96 GB card; a 70B-class base also fits on one card with
-  QLoRA. Today's CPU box is never an option.
+- **Compute targets (to validate, not guarantees):** plan for a 30B-class
+  QLoRA over ~3k examples to finish in hours rather than days on one 96 GB
+  card, and for a 70B-class base to fit on one card with QLoRA. Actual
+  fit and wall-clock depend on sequence length, batch size, optimizer,
+  gradient checkpointing, quantization backend, and model architecture —
+  treat the numbers as estimates to confirm empirically. Today's CPU box is
+  never an option.
+- **Pilot-run acceptance gate:** before scheduling real adapter training,
+  run a **one-epoch pilot** on the full config and a representative data
+  slice. It must fit in memory, complete, and project a sane full-run time
+  and loss curve. Only after the pilot passes is real (multi-epoch)
+  training scheduled — on rented GPUs this also caps wasted paid hours.
 
 ## Where to train (in order of preference)
 
@@ -108,6 +141,22 @@ per-request. LiteLLM maps role aliases to base+adapter (e.g. `r1-docs-tr` →
 chat-base + `tr-docs`), so interfaces notice nothing. Adapter files are
 small (hundreds of MB); version them in the model store with the same
 manifest discipline as GGUFs.
+
+**Adapter-store records (extended manifest).** Reuse the canonical manifest
+schema defined in `phase-0-bakeoff.md` — do not fork it — but require each
+record to carry these fields so phase-0/1 GGUF artifacts (llama.cpp) and
+phase-3 safetensors+adapter artifacts (vLLM) are never ambiguous:
+
+- `artifact_type` — one of `gguf`, `hf-safetensors`, `lora-adapter`.
+- `serving_backend` — e.g. `llama.cpp`, `vllm`.
+- `base_model` — for a `lora-adapter`, the exact resident base it attaches
+  to (must match a `hf-safetensors` record so multi-LoRA composition holds).
+- `quantization` — e.g. `Q4_K_M`, `bf16`, `4-bit-nf4`.
+- `compatible_roles` — the roles this artifact serves (e.g. `R1,R2,R6`).
+
+A `lora-adapter` record is meaningless without its `base_model` +
+`serving_backend`; the store rejects adapters that name a base it does not
+also track.
 
 ## Iteration loop
 

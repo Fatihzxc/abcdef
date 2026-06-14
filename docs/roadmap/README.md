@@ -8,7 +8,7 @@ RAM / i9-14900HX (24-core) / RTX 4070 Laptop (8 GB VRAM) Windows 11 box,
 later a 5–10 engineer team on an on-prem GPU server. Everything is phased so
 the laptop era builds nothing the GPU era throws away.
 
-The roadmap is six documents:
+The roadmap is seven documents:
 
 | Doc | What it covers |
 |---|---|
@@ -17,6 +17,7 @@ The roadmap is six documents:
 | [phase-2-knowledge.md](phase-2-knowledge.md) | Domain Knowledge Layer (datasheet-kb extension), MCP wiring, standards codification + R5, `.docx` pipeline |
 | [phase-3-gpu-team.md](phase-3-gpu-team.md) | vLLM backend swap, GPU bake-off rerun, vision for R7, auth + team rollout |
 | [hardware-team-server.md](hardware-team-server.md) | Sized server recommendation for 5–10 users, with the VRAM arithmetic |
+| [hardware-sku-checklist.md](hardware-sku-checklist.md) | Volatile, purchase-time SKU / price / power facts — re-verify before buying |
 | [training-plan.md](training-plan.md) | LoRA fine-tuning: adapters, datasets, QLoRA recipe, where to train, eval gate, serving |
 
 ## Architecture
@@ -65,14 +66,15 @@ Four invariants, stated once here and enforced in every phase doc:
 
 | Phase | Done when | Effort (working sessions) |
 |---|---|---|
-| **0 — Bake-off** | Harness + 3 test sets running; all candidates scored on quality and tok/s; `docs/bakeoff/results.md` model-per-role table committed; Turkish risk gate decided | 4–6 |
-| **1 — Serving** | llama-swap serving role aliases; chat + IDE + CLI all working through role configs; pre-commit R4 hook live; harness re-passes through the serving path | 3–4 |
-| **2 — Knowledge** | All four corpora indexed with citations; R8 live in all interfaces; ≥2 approved standards docs + R5 enforcing them; `llmctl docgen` renders company `.docx` | 6–10 |
+| **0 — Bake-off** | Harness + 3 test sets running; candidates scored in staged passes (smoke→full); `docs/bakeoff/results.md` model-per-role table committed; setup pinned in `artifacts.lock`; Turkish risk gate decided (incl. R6-TR) | 4–6 |
+| **1 — Serving** | llama-swap serving role aliases; chat + IDE + CLI all working through role configs; advisory R4 pre-commit hook (blocking opt-in only after its eval gate passes); harness re-passes through the serving path | 3–4 |
+| **2 — Knowledge** | Ships as independent milestones **2A–2E** (text+R8 · standards+R5 · `.docx` · Altium · subsea PDF), each with its own acceptance gate incl. retrieval-quality checks; phase done = all five | 6–10 |
 | **3 — GPU/team** | vLLM + LiteLLM keys on the server; GPU bake-off rerun; vision R7; adapters per training plan; 5–10 engineers onboarded | 2–3 + rollout weeks |
 
 Effort is in evenings/weekends-class working sessions, not calendar
 promises; phase 2's range is wide because ingestion quality and the human
-standards-approval step dominate. Phases are strictly ordered, but dataset
+standards-approval step dominate, which is why it ships as independent
+milestones 2A–2E. Phases are strictly ordered, but dataset
 collection for the training plan starts during phase 2 (data is the long
 pole).
 
@@ -111,11 +113,14 @@ configs/
   llama-swap.yaml       # generated (P1)
   training/*.yaml       # Axolotl configs, no data (training plan)
 evals/                  # harness + cases + rubrics (P0)
+  cases/private/        # gitignored: sensitive eval cases, local only (P0)
+  results/              # gitignored: raw model outputs (P0)
 cli/                    # llmctl + pre-commit hook templates (P1)
 standards/<lang>.md     # codified coding standards (P2)
 templates/              # tagged company .docx + field maps (P2)
-docs/bakeoff/           # committed results tables (P0, P3)
+docs/bakeoff/           # committed results tables + candidates.md (P0, P3)
 docs/team/              # onboarding + usage guidelines (P3)
+artifacts.lock          # pinned setup artifacts for offline restore (P0)
 models/, datasets/      # NOT in this repo: local disk, manifest-tracked
 ```
 

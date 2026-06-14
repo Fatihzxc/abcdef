@@ -1,0 +1,18 @@
+# artifacts.lock — pinned setup artifacts for offline reproducibility.
+#
+# "Offline after setup" means restorable, not just downloaded. Fill this in
+# during the online setup window and archive the named binaries/images next
+# to models/. See docs/roadmap/phase-0-bakeoff.md -> "Reproducible / offline
+# setup lock". Re-verify every checksum on restore.
+
+ubuntu_image:         Ubuntu-24.04
+apt_packages:         build-essential cmake git curl pandoc   # installed: <YYYY-MM-DD>
+uv_installer_sha256:  <sha256 of the astral.sh/uv/install.sh you ran>   # <YYYY-MM-DD>
+python_version:       3.12.<x>
+llama_cpp_commit:     <git -C ~/llama.cpp rev-parse HEAD>
+open_webui_image:     ghcr.io/open-webui/open-webui@sha256:<digest>   # NOT :main
+eval_harness_commit:  <git rev-parse HEAD of this repo at bake-off time>
+
+# Model file checksums live in models/manifest.tsv (sha256 per artifact).
+# Container digests for any other service (LiteLLM, vLLM in phase 3) get
+# pinned here by @sha256 too, never by a floating tag.

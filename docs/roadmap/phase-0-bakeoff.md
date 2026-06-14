@@ -74,6 +74,7 @@ models, so also build the CUDA variant (needs the CUDA toolkit in WSL):
 ```bash
 git clone https://github.com/ggml-org/llama.cpp ~/llama.cpp
 cd ~/llama.cpp
+git checkout <commit>     # pin it; record the hash in artifacts.lock
 # CPU build:
 cmake -B build -DCMAKE_BUILD_TYPE=Release
 cmake --build build --config Release -j"$(nproc)"
@@ -85,17 +86,24 @@ cmake --build build-cuda --config Release -j"$(nproc)"
 
 With the CUDA build, offload as many layers as fit in 8 GB via `-ngl N`
 (small models only — a 30B-A3B will not fully fit). Pin the llama.cpp commit
-hash in `docs/bakeoff/results.md` when recording results — throughput changes
-between releases.
+hash in `artifacts.lock` (and the environment record in
+`docs/bakeoff/results.md`) — throughput changes between releases.
 
 ### Model storage convention
 
 All models live in one place, with a manifest, so "fully offline" is real
-and restorable:
+and restorable. The manifest is the canonical artifact record for the whole
+project — phase 3 (vLLM safetensors) and the training plan (LoRA adapters)
+extend the same schema, so every row is unambiguous about what it is and how
+it is served:
 
 ```
 models/
-  manifest.tsv          # filename <TAB> sha256 <TAB> source URL <TAB> date
+  manifest.tsv          # TAB-separated, one row per artifact:
+  #   filename  sha256  source_url  date  artifact_type  serving_backend
+  #   base_model  quantization  compatible_roles
+  #   artifact_type   = gguf | hf-safetensors | lora-adapter
+  #   serving_backend = llama.cpp | vllm
   qwen3-30b-a3b-instruct-q4_k_m.gguf
   ...
 ```
@@ -109,6 +117,24 @@ Native-Windows fallback (only if WSL2 is blocked by IT policy): llama.cpp
 ships Windows release binaries (AVX2 build); the eval harness is plain
 Python and runs unchanged; Open WebUI in phase 1 would need Docker Desktop
 or `pip install open-webui`. Everything else in this roadmap still applies.
+
+### Reproducible / offline setup lock
+
+"Offline after setup" means *restorable*, not just downloaded. During the
+online setup window, record every moving piece once in a tracked
+`artifacts.lock` at the repo root, and archive the binaries/images it names
+alongside `models/`:
+
+- Ubuntu image version (`Ubuntu-24.04`) and the `apt` package list + date
+- `uv` installer version/checksum and the pinned Python version
+- llama.cpp commit hash (the `git checkout` above)
+- container image digests (Open WebUI etc.) — pin by `@sha256:…`, never `:main`
+- model file sha256s (mirrors `models/manifest.tsv`)
+- eval-harness commit
+
+Floating installer scripts (`astral.sh/uv/install.sh`) and `:latest`/`:main`
+tags change behaviour between runs and silently break bake-off
+repeatability — pin them here and re-verify checksums on restore.
 
 ## Step 2 — Candidate models
 
@@ -135,6 +161,12 @@ same families (Qwen, Gemma, Aya, coder-MoE) — this table is a snapshot, the
 families are the decision. Drop a candidate rather than growing the list
 past ~8; each added model costs a full human-scoring pass.
 
+The table is a snapshot; the *living* candidate list is
+`docs/bakeoff/candidates.md` — one row per model with upstream model id,
+quant source, license, sha256, download date, context limit, expected
+RAM/VRAM, intended roles, and (if dropped) the exclusion reason. The roadmap
+keeps the selection *process*; the manifest carries the volatile model facts.
+
 Expected throughput on the i9-14900HX (24 cores; set expectations, then
 measure with `llama-bench`): MoE ~3B active ≈ 15–30 tok/s; dense 12–14B ≈
 6–12 tok/s; dense 27B+ ≈ 3–6 tok/s. Partial GPU offload (`-ngl`) on the 4070
@@ -152,6 +184,7 @@ evals/
     tr-docs/*.yaml        # test set 1
     code/*.yaml           # test set 2
     grounded-qa/*.yaml    # test set 3
+    private/              # gitignored: sensitive company cases (see Step 4)
   rubrics/*.md            # scoring rubrics, one per test set
   runner.py               # run cases against an endpoint
   score.py                # interactive human scoring -> fills scores into results
@@ -180,8 +213,16 @@ phase 1; for phase 0, start `llama-server -m <gguf> --port 8080` per model
 manually — one model at a time is fine).
 
 `score.py`: iterates unscored results, shows prompt + output + rubric,
-records a 1–5 score and a note. ~50 cases × 8 models is a few evenings of
-scoring; this is the irreducible human cost of the bake-off.
+records a 1–5 score and a note. ~50 cases × 8 models is ~400 human
+judgements — too much to do well in one sitting, and corner-cutting here
+corrupts the gate every later phase leans on. Score in passes instead:
+
+- **Smoke pass:** 10–12 cases spanning all three sets, across *all*
+  candidates — cheap, kills the obviously-weak models fast.
+- **Full pass:** the full ~50 cases, but only the top 2–3 candidates *per
+  role* that survived the smoke pass.
+- **Regression pass:** a fixed ~15-case subset, re-run on every later prompt
+  or model change — this is the permanent gate, not a one-off.
 
 Run with deterministic settings (temperature 0, fixed seed) so reruns are
 comparable.
@@ -190,6 +231,20 @@ comparable.
 
 The user authors the cases (they encode his actual work); the harness ships
 with one template per set. Target ~50 cases total.
+
+**Eval data classification (decide before authoring).** Cases encode real
+work — datasheet excerpts, board netlists/pin-maps, subsea figures — so
+classify before committing anything:
+
+- Public or synthetic cases → may be committed under `evals/cases/`.
+- Sensitive company cases → live in `evals/cases/private/` (gitignored), on
+  local disk + backup only, never pushed.
+- Committed bake-off summaries (`docs/bakeoff/`) carry scores and model
+  names — never the sensitive prompt text or raw model output.
+- If a sensitive case must be tracked for regression, commit a *redacted*
+  fixture, not the original.
+
+`.gitignore` enforces this (`evals/cases/private/`, `evals/results/`).
 
 **Set 1 — Turkish documents (~16 cases).** 3–5 prompts per doc family from
 the spec: design-doc section, test report section, formal company letter,
@@ -260,5 +315,8 @@ mean ≥ 3.5/5 with no register-correctness score below 3):
    Turkish *review* (R2) may still clear the bar since critique is easier
    than generation — test that explicitly before deferring both.
 
-Record the decision and its rationale in `docs/bakeoff/results.md`. R3–R6
-proceed to phase 1 regardless of this gate.
+Record the decision and its rationale in `docs/bakeoff/results.md`. R3–R5
+proceed to phase 1 regardless of this gate. R6 is split for this decision:
+R6-EN (English docs) and summary tasks proceed; R6-TR *generation* is gated
+with the same Turkish fallback as R1 above — it does not get a pass just
+because R6 is labelled "general purpose".

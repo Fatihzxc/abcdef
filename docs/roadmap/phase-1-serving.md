@@ -15,7 +15,11 @@ Acceptance criteria:
 - [ ] Open WebUI: one preset per R1/R2/R6, working chats in Turkish.
 - [ ] Continue in VS Code: inline + chat against r3-coder; `/review` prompt
       runs R4 on the current diff.
-- [ ] `llmctl` CLI works; pre-commit hook runs R4 on staged diffs.
+- [ ] `llmctl` CLI works; pre-commit hook template ships and runs R4 on
+      staged diffs in **advisory** mode (blocking is opt-in — see Step 5).
+- [ ] Inference endpoint bound loopback-only (reachable from host + the
+      Docker container via host-gateway, not the LAN); reboot survives — the
+      chosen service path restarts and `/v1/models` answers.
 
 Estimated effort: 3–4 working sessions.
 
@@ -62,8 +66,11 @@ models:
 healthCheckTimeout: 300   # big GGUFs take a while to load from disk
 ```
 
-Run as a user service so it survives reboots
-(`systemd --user` unit in WSL2, or a scheduled task running `wsl -e`).
+Service supervision is a decision, not a default. A `systemd --user` unit
+inside WSL2 is fine for manual development, but it does not start until the
+distro starts; the thing that actually bridges Windows startup/login is a
+Windows **Scheduled Task** running `wsl -e` (trigger: at log-on). Pick one
+path, then health-check it after a reboot — don't assume it came back.
 Verify:
 
 ```bash
@@ -101,9 +108,19 @@ rag: false                 # flips on in phase 2 for grounded roles
 and emits:
 
 - `configs/llama-swap.yaml` (Step 1) — model aliases + llama-server flags,
-- the `models:` block for Continue's `~/.continue/config.yaml`,
-- Open WebUI preset JSON for import (or applied via its API),
+- a `generated/` `models:` snippet for Continue's `~/.continue/config.yaml`
+  (merged in, not overwritten — see below),
+- Open WebUI preset JSON under `generated/` for import (or applied via its API),
 - nothing for the CLI — `llmctl` reads `configs/roles/` directly.
+
+Rendering is non-destructive. `render.py` writes every snippet under
+`generated/` first; it never edits a user's `~/.continue/config.yaml` or Open
+WebUI data in place. Merging a snippet into live user config is a separate,
+opt-in step that: backs up the target first, merges only the keys it owns and
+**preserves unknown keys**, supports `--dry-run` and a `--diff` preview, and
+documents rollback (restore the backup). API keys and per-user `apiBase`
+endpoints stay out of the git-tracked role files — they belong in the user's
+local config, injected at merge time.
 
 Editing a system prompt = edit one YAML, rerun `render.py`, restart
 llama-swap. Prompts are versioned in git; the eval harness re-runs against
@@ -116,12 +133,41 @@ docker run -d --name open-webui -p 3000:8080 \
   -e OPENAI_API_BASE_URL=http://host.docker.internal:8080/v1 \
   -e OPENAI_API_KEY=local \
   -v open-webui:/app/backend/data \
-  ghcr.io/open-webui/open-webui:main
+  ghcr.io/open-webui/open-webui@sha256:<digest>   # pin a digest, not :main
 ```
+
+Pin the image by `@sha256` digest (record it in `artifacts.lock`), never the
+floating `:main` tag — an offline restore must reproduce the same Open WebUI
+build. See phase-0's "Reproducible / offline setup lock".
 
 (WSL2: enable Docker Desktop WSL integration or install docker-ce inside
 Ubuntu; `host.docker.internal` needs `--add-host host.docker.internal:host-gateway`
 on plain docker-ce.)
+
+The container reaches the inference endpoint over the Docker bridge, not via
+`localhost` — so the bind address of llama-swap/llama-server matters. Decide
+it explicitly and verify from *inside* the container before finalizing the
+run command:
+
+```bash
+docker exec open-webui curl http://host.docker.internal:8080/v1/models
+```
+
+Test all three reachability paths and keep whichever resolves: plain
+`host.docker.internal` (Docker Desktop WSL integration provides it),
+`--add-host=host.docker.internal:host-gateway` (plain docker-ce), and the
+raw WSL host IP. If llama-server binds loopback (`127.0.0.1`) inside WSL the
+container cannot reach it; bind `0.0.0.0` so the bridge can — but see the
+endpoint-exposure note below, because `0.0.0.0` also exposes it to the LAN
+unless the Windows firewall blocks it.
+
+Endpoint exposure (phases 0–2): the inference endpoint must be reachable
+only from the local host and the Docker container, never from the LAN.
+Acceptance: confirm the listener is bound to loopback, or — if it binds
+`0.0.0.0` for the container (see F-018 above) — that a Windows firewall rule
+(or a local-only reverse proxy) drops inbound port 8080 from the LAN.
+`OPENAI_API_KEY=local` is an OpenAI-client compatibility placeholder, **not**
+a security control; do not treat it as auth.
 
 In Workspace → Models, create one preset per role (r1-docs-tr,
 r2-review-tr, r6-docs-general) carrying the rendered system prompt and
@@ -135,7 +181,9 @@ multi-user arrives in phase 3.
 ## Step 4 — VS Code + Continue (R3, R4)
 
 Install the Continue extension; point it at the endpoint. The relevant
-`~/.continue/config.yaml` blocks are generated by `render.py`:
+`~/.continue/config.yaml` blocks are rendered to `generated/` by `render.py`
+and merged into the user's config (backup + preserve unknown keys — Step 2),
+never written over it:
 
 ```yaml
 models:
@@ -179,16 +227,31 @@ llmctl sweep --role r4 src/**/*.c              # batch whole-repo review
 ```
 
 `review` chunks large diffs file-by-file (32k context ceiling), emits the
-findings list to stdout (human) or `--json` (tooling). Exit code 1 if any
-finding ≥ the `--fail-on` severity → that *is* the pre-commit gate:
+findings list to stdout (human) or `--json` (tooling).
+
+Phase 1 ships the hook **template** and an **advisory** command — it prints
+findings and always exits 0:
 
 ```bash
-# .git/hooks/pre-commit (template shipped in cli/hooks/)
+# .git/hooks/pre-commit (template shipped in cli/hooks/), advisory default
+llmctl review --staged --fail-on high --advisory   # prints findings, exit 0
+```
+
+Blocking mode (`--fail-on high` without `--advisory`, exit 1 on a hit) is
+**opt-in**, and only after a small eval set proves all four gates:
+
+- it catches seeded high-severity bugs (true positives on a known-bad set),
+- it does not block clean diffs (no false positives on known-good diffs),
+- it stays under an agreed latency ceiling (it's CPU inference — measure it),
+- bypass is documented (`git commit --no-verify`).
+
+```bash
+# .git/hooks/pre-commit — blocking, enable only once the gates above pass
 llmctl review --staged --fail-on high || {
   echo "LLM review found high-severity issues (bypass: git commit --no-verify)"; exit 1; }
 ```
 
-Keep the hook advisory-fast: high-severity-only, and skip when the diff
+Keep the hook fast either way: high-severity-only, and skip when the diff
 exceeds ~400 lines (full sweeps are `llmctl sweep`, run deliberately).
 
 ## Step 6 — End-to-end acceptance
@@ -198,8 +261,15 @@ exceeds ~400 lines (full sweeps are `llmctl sweep`, run deliberately).
    review a pasted Turkish doc via r2-review-tr → findings list.
 3. VS Code: ask r3-coder for a register-init function; run `/review` on a
    real diff.
-4. `llmctl review --staged` on a deliberately buggy change → finding found,
-   nonzero exit; pre-commit hook blocks the commit.
-5. Re-run the phase-0 harness against the role aliases (not raw models) —
+4. `llmctl review --staged` on a deliberately buggy change → finding found;
+   advisory hook prints it and exits 0. (Blocking mode is verified separately
+   once its eval gates pass — Step 5; phase 1 does not require it on.)
+5. Container connectivity: `docker exec open-webui curl
+   http://host.docker.internal:8080/v1/models` returns the alias list.
+6. Endpoint exposure: confirm the listener is loopback-only, or that the
+   firewall/proxy blocks port 8080 from the LAN if it binds `0.0.0.0`.
+7. Reboot (or `wsl --shutdown`), bring the service path back up, and confirm
+   `curl /v1/models` answers — startup survives restart.
+8. Re-run the phase-0 harness against the role aliases (not raw models) —
    scores must match the bake-off; this proves prompts/params didn't
    regress anything and wires the harness to the permanent serving path.
