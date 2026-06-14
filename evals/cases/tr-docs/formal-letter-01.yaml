@@ -1,0 +1,9 @@
+# Synthetic template case — no real company data (see eval data classification).
+id: tr-docs/formal-letter-01
+role: r1
+rubric: tr-docs
+max_tokens: 1024
+prompt: |
+  Bir tedarikçiye gönderilmek üzere, gecikmiş bir teslimat hakkinda resmî
+  bir şirket mektubu yaz. Nazik ama net bir dil kullan; sözleşme referansini
+  ve revize teslimat tarihini soran bir paragraf içersin. Imza bloğu ekle.

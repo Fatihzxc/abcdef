@@ -1,0 +1,14 @@
+# Synthetic register map — illustrative, not from a real datasheet.
+id: code/uart-init-01
+role: r3
+rubric: code
+max_tokens: 768
+prompt: |
+  Write a bare-metal C function `void uart_init(uint32_t baud)` for a UART at
+  base 0x4000C000 with these registers:
+    +0x00 DATA   (read/write byte)
+    +0x04 STATE  (bit0 = TX FIFO full)
+    +0x08 CTRL   (bit0 = TX enable, bit1 = RX enable)
+    +0x0C BAUDDIV(integer divisor = pclk / baud)
+  Assume a 24 MHz peripheral clock. Enable both TX and RX. Use volatile
+  pointers and uint32_t register access.

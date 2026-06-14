@@ -1,0 +1,20 @@
+[project]
+name = "local-llm-evals"
+version = "0.1.0"
+description = "Phase-0 bake-off eval harness for the offline local LLM stack"
+requires-python = ">=3.12"
+# Runtime deps kept minimal so the harness is easy to vendor for offline use:
+# stdlib urllib handles HTTP; only YAML parsing needs a third-party package.
+dependencies = [
+    "pyyaml>=6.0",
+]
+
+[dependency-groups]
+dev = [
+    "pytest>=8.0",
+]
+
+[tool.pytest.ini_options]
+pythonpath = ["."]
+testpaths = ["evals/tests"]
+addopts = "-q"

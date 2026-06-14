@@ -275,7 +275,7 @@ is "not found in the provided context". Rubric: faithfulness to context
 ## Step 5 — Run and score
 
 1. For each candidate: start `llama-server`, run
-   `uv run evals/runner.py --endpoint http://localhost:8080/v1 --model <name> --all`,
+   `uv run python -m evals.runner --endpoint http://localhost:8080/v1 --model <name> --all`,
    stop the server.
 2. Also run `llama-bench` per model and record pp/tg numbers alongside (a
    second, prompt-independent throughput datapoint).
